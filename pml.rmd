@@ -1,0 +1,83 @@
+---
+title: "Practical Machine Learning Project"
+author: "A. Tse"
+date: "Friday, September 12, 2014"
+output: html_document
+---
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+##Download Data
+
+```{r}
+setInternet2(TRUE)
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "pml-training.csv")
+download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "pml-testing.csv")
+pmltrain <- read.csv('pml-training.csv')
+pmltest <- read.csv('pml-testing.csv')
+```
+
+##Data Preprocessing
+
+```{r}
+library(caret)
+library(ggplot2)
+library(lattice)
+library(kernlab)
+library(randomForest)
+#str(pmltrain) display short form of dataset
+#str(pmltest)
+trainid <- createDataPartition(pmltrain$classe,p=.8,list=FALSE)
+traindata = pmltrain[trainid,]
+testdata = pmltrain[-trainid,]
+set.seed(12345)
+nzv <- nearZeroVar(traindata)
+trainnzv <- traindata[-nzv]
+testnzv <- testdata[-nzv]
+pmltestnzv <- pmltest[-nzv]
+dim(trainnzv)
+dim(testnzv)
+dim(pmltestnzv)
+ftrid <- which(lapply(trainnzv,class) %in% c('numeric'))
+trainnzv1 <- preProcess(trainnzv[,ftrid], method=c('knnImpute'))
+ftrid
+pred1 <- predict(trainnzv1, trainnzv[,ftrid])
+predtrain <- cbind(trainnzv$classe,pred1)
+names(predtrain)[1] <- 'classe'
+predtrain[is.na(predtrain)] <- 0
+
+pred2 <- predict(trainnzv1, testnzv[,ftrid])
+predtest <- cbind(testnzv$classe, pred2)
+names(predtest)[1] <- 'classe'
+predtest[is.na(predtest)] <- 0
+predpmltest <- predict(trainnzv1,pmltestnzv[,ftrid] )
+
+model <- randomForest(classe~.,data=predtrain)
+
+predtrain1 <- predict(model, predtrain) 
+print(table(predtrain1, predtrain$classe))
+str(predpmltest)
+
+```
+##Results
+```{r}
+predanswers <- predict(model, predpmltest) 
+predanswers
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(as.character(predanswers))
+```
+
